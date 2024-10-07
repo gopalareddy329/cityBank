@@ -1,19 +1,23 @@
 # myapp/views.py
 import csv
 from datetime import datetime
+from django.http import JsonResponse
 from django.utils import timezone
+from django.db.models import Sum
+from datetime import timedelta
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.permissions import AllowAny
 from rest_framework.authtoken.models import Token
-from .models import User,Transaction,AdvisorReport
+from .models import User,Transaction,AdvisorReport,Evaluator
 from django.views.decorators.csrf import csrf_exempt
 from .serializer import UserSerializer
 from rest_framework_simplejwt.tokens import RefreshToken
 from .token import MyTokenObtainPairSerializer
 import joblib
+from django.db.models import Q
 import pandas as pd
 
 
@@ -67,6 +71,33 @@ def regression(request,available,reason,category):
     predicted_can_spent = reg_model.predict(new_data)
     
     return predicted_can_spent[0]
+
+
+def advisor_report(request):
+    last_20_reports = AdvisorReport.objects.filter(user=request.user).exclude(Category="Good").order_by('-Date')[:20]
+    report_data = []
+    for report in last_20_reports:
+        report_data.append({
+            'date': report.Date,
+            'amount': report.amount
+        })
+
+    return {'reports': report_data}
+
+def TreeMap(request):
+    now = timezone.now()
+
+    thirty_days_ago = now - timedelta(days=30)
+    last_30_days_transactions = (
+    Transaction.objects.filter(user=request.user, Date__gte=thirty_days_ago)
+    .values('Reason')
+    .annotate(total_spent=Sum('Amount_Spent'))
+    )
+
+    response_data = list(last_30_days_transactions)
+   
+    return {'reports': response_data}
+
 
 
 @api_view(['POST'])
@@ -149,6 +180,69 @@ def advisor(request):
     else:
         return Response({'error': 'Provide both amount spent and reason'}, status=status.HTTP_400_BAD_REQUEST)
     
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def evalutor(request):
+    amount_spent = int(request.data.get("amount"))
+    reason = request.data.get("reason")
+    
+    if amount_spent and reason:
+        now = timezone.now()
+        start_of_month = now.replace(day=1)
+        end_of_month = (start_of_month + timezone.timedelta(days=32)).replace(day=1) - timezone.timedelta(days=1)
+        user = request.user
+
+        last_transaction = Transaction.objects.filter(
+        user=user,
+        Date__gte=start_of_month,  
+        Date__lte=end_of_month  
+        ).order_by('-Date').first()
+
+        available=0
+
+        if last_transaction:
+            available=last_transaction.Available_Amount
+        else:
+            available=request.user.income
+        output=classification(request,amount_spent,available,reason)
+        can_spent=int(regression(request,available,reason,output))
+        print(can_spent)
+        transaction=Transaction.objects.create(
+            user=user,
+            Reason=reason,
+            Amount_Spent=amount_spent,
+            Date=timezone.now(),
+            Category=output,
+            Available_Amount=available-amount_spent
+        )
+        Evaluator.objects.create(
+            transaction=transaction,
+            can_spent=can_spent,
+            savings=int(can_spent)-int(amount_spent),
+        )
+
+        
+        return Response({
+            'spent':amount_spent,
+            'can_spent':can_spent,
+            'savings':int(can_spent)-int(amount_spent)
+        }, status=status.HTTP_200_OK)
+    else:
+        return Response({'error': 'Provide both amount spent and reason'}, status=status.HTTP_400_BAD_REQUEST)
+    
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def graphs(request):
+    advisor_report_data = advisor_report(request)  
+    tree_map=TreeMap(request)
+    return Response({
+        "advisor_report": advisor_report_data ,
+        "tree_map":tree_map
+    }, status=status.HTTP_200_OK)
+
+
 
 
 @api_view(['POST'])
@@ -194,40 +288,3 @@ def test(request):
         return Response({"error": f"An error occurred: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
    
 
-@api_view(['POST'])
-@permission_classes([IsAuthenticated])
-def evalutor(request):
-    amount_spent = int(request.data.get("amount"))
-    reason = request.data.get("reason")
-    
-    if amount_spent and reason:
-        now = timezone.now()
-        start_of_month = now.replace(day=1)
-        end_of_month = (start_of_month + timezone.timedelta(days=32)).replace(day=1) - timezone.timedelta(days=1)
-        user = request.user
-
-        last_transaction = Transaction.objects.filter(
-        user=user,
-        Date__gte=start_of_month,  
-        Date__lte=end_of_month  
-        ).order_by('-Date').first()
-
-        available=0
-
-        if last_transaction:
-            available=last_transaction.Available_Amount
-        else:
-            available=request.user.income
-        output=classification(request,amount_spent,available,reason)
-        can_spent=int(regression(request,available,reason,output))
-        print(can_spent)
-
-        
-        return Response({
-            'spent':amount_spent,
-            'can_spent':can_spent,
-            'savings':int(can_spent)-int(amount_spent)
-        }, status=status.HTTP_200_OK)
-    else:
-        return Response({'error': 'Provide both amount spent and reason'}, status=status.HTTP_400_BAD_REQUEST)
-    

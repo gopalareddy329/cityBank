@@ -1,5 +1,5 @@
 import {useState,useEffect} from 'react'
-import {ApiBase} from '../utils/base_api'
+import {ApiBase} from '../utlis/base_api'
 
 const AuthFetch = (authToken,url) => {
     const [data,setData]=useState([])

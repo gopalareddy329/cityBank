@@ -12,19 +12,27 @@ class Transaction(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)  # Establishes the relationship between User and Transaction
     Reason = models.CharField(max_length=255)  # Reason for the transaction
     Amount_Spent = models.DecimalField(max_digits=10, decimal_places=2)  # Amount spent in the transaction
-    Date = models.DateField()  # Date of the transaction
+    Date = models.DateTimeField()  # Date of the transaction
     Category = models.CharField(max_length=100)  # Category of the transaction
     Available_Amount = models.DecimalField(max_digits=10, decimal_places=2)  # Available amount after transaction
 
-    def _str_(self):
+    def __str__(self):
         return f"Transaction {self.id} by {self.user.email}"
     
 class AdvisorReport(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     Reason = models.CharField(max_length=255)
     Category = models.CharField(max_length=100)
-    Date = models.DateField()
+    Date = models.DateTimeField()
     amount=models.DecimalField(max_digits=10, decimal_places=2) 
 
     def __str__(self):
         return f"{self.user.email}"
+    
+class Evaluator(models.Model):
+    transaction = models.ForeignKey(Transaction, on_delete=models.CASCADE,null=True)
+    can_spent=models.DecimalField(max_digits=10, decimal_places=2) 
+    savings=models.DecimalField(max_digits=10, decimal_places=2) 
+    def __str__(self):
+        return f"{self.transaction.user.email}"
+    

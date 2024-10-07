@@ -1,48 +1,13 @@
 import React from 'react'
 import Chart from "react-apexcharts";
-const Treemap = () => {
+const Treemap = (data) => {
+  var d=data?.data?.map((item)=>({x:item.Reason,y:item.total_spent}))
+
     const options={
           
         series: [
           {
-            data: [
-              {
-                x: 'Entertainment',
-                y: 218
-              },
-              {
-                x: 'Groceries',
-                y: 149
-              },
-              {
-                x: 'Dining Out',
-                y: 184
-              },
-              {
-                x: 'Utilities',
-                y: 55
-              },
-              {
-                x: 'Clothing',
-                y: 84
-              },
-              {
-                x: 'Miscellaneous',
-                y: 31
-              },
-              {
-                x: 'Education',
-                y: 70
-              },
-              {
-                x: 'Health',
-                y: 30
-              },
-              {
-                x: 'Travel',
-                y: 44
-              }
-            ]
+            data:d
           }
         ],
         options: {
@@ -54,7 +19,7 @@ const Treemap = () => {
             type: 'treemap'
           },
           title: {
-            text: 'Basic Treemap'
+            text: 'Expenditure'
           }
         },
       

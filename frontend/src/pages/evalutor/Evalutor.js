@@ -53,7 +53,7 @@ const Evalutor = () => {
         <div className="w-full bg-gray-50 rounded-lg shadow   md:mt-0 sm:max-w-md xl:p-0 ">
             <div className="p-6 space-y-4 md:space-y-6 sm:p-8">
                 <h1 className="text-xl font-bold leading-tight tracking-tight text-gray-900 md:text-2xl ">
-                    Evalutor
+                    Evaluator
                 </h1>
                 <form className="space-y-4 md:space-y-6" onSubmit={handelSubmit}>
                     <div>
