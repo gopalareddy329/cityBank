@@ -12,6 +12,7 @@ from rest_framework import status
 from rest_framework.permissions import AllowAny
 from rest_framework.authtoken.models import Token
 from .models import User,Transaction,AdvisorReport,Evaluator
+from django.db.models.functions import TruncMonth
 from django.views.decorators.csrf import csrf_exempt
 from .serializer import UserSerializer
 from rest_framework_simplejwt.tokens import RefreshToken
@@ -98,7 +99,58 @@ def TreeMap(request):
    
     return {'reports': response_data}
 
+def PieChart(request):
 
+    six_months_ago = timezone.now() - timedelta(days=180)
+    monthly_transactions = (
+    Transaction.objects
+    .filter(user=request.user, Date__gte=six_months_ago) 
+    .values('Reason')  
+    .annotate(total_amount_spent=Sum('Amount_Spent')) 
+    .order_by('Reason')  
+    )
+
+
+    response_data = list(monthly_transactions)
+   
+    return {'reports': response_data}
+
+def RadarChart(request):
+
+    months_ago = timezone.now() - timedelta(days=30)
+    monthly_transactions = (
+    Transaction.objects
+    .filter(user=request.user, Date__gte=months_ago) 
+    .values('Reason') 
+    .annotate(total_amount_spent=Sum('Amount_Spent'))  
+    .annotate(total_can_spent=Sum('evaluator__can_spent')) 
+    .order_by('Reason')  
+    )
+
+
+    response_data = list(monthly_transactions)
+   
+    return {'reports': response_data}
+
+def monthly_transaction_summary(request):
+    six_months_ago = timezone.now() - timedelta(days=180)
+
+    monthly_transactions = (
+        Transaction.objects
+        .filter(user=request.user,Date__gte=six_months_ago)
+        .annotate(month=TruncMonth('Date'))  
+        .values('month') 
+        .annotate(total_amount_spent=Sum('Amount_Spent'))  
+        .annotate(total_can_spent=Sum('evaluator__can_spent')) 
+        .order_by('month')  
+    )
+
+   
+    context = {
+        'monthly_summary': monthly_transactions,
+    }
+
+    return context
 
 @api_view(['POST'])
 @permission_classes([AllowAny])
@@ -237,9 +289,15 @@ def evalutor(request):
 def graphs(request):
     advisor_report_data = advisor_report(request)  
     tree_map=TreeMap(request)
+    monthly_transaction=monthly_transaction_summary(request)
+    radar=RadarChart(request)
+    pie=PieChart(request)
     return Response({
         "advisor_report": advisor_report_data ,
-        "tree_map":tree_map
+        "tree_map":tree_map,
+        "monthly_transaction_summary":monthly_transaction,
+        "pie":pie,
+        "radar":radar
     }, status=status.HTTP_200_OK)
 
 
@@ -248,9 +306,9 @@ def graphs(request):
 @api_view(['POST'])
 @permission_classes([AllowAny])
 def test(request):
-
-  
-    file_path = "/original_csv.csv"
+    Transaction.objects.all().delete()
+    AdvisorReport.objects.all().delete()
+    file_path = "/Users/gopalareddy/Desktop/repo/city/cityBank/backend/api/mlmodel/Evaluator.csv"
     
     try:
         with open(file_path, 'r') as csvfile:
@@ -274,11 +332,23 @@ def test(request):
                         Reason=row['Reason'],
                         Amount_Spent=row['Amount_Spent'],
                         Date=date,  # Save the parsed date (either full datetime or just date)
-                        Category=row['Category'],
+                        Category=row['Category_Predicted'],
                         Available_Amount=row['Available_Amount']
                     )
+
                     transaction.save()  # Save the transaction to the database
-                
+                    Evaluator.objects.create(
+                        transaction=transaction,
+                        can_spent=row['can_spent_predicted'],
+                        savings=row['savings'],
+                    )
+                    AdvisorReport.objects.create(
+                        user=user,
+                        Date=date,
+                        Reason=row['Reason'],
+                        Category=row['Category_Predicted'],
+                        amount=row['Amount_Spent']
+                        )
                 except User.DoesNotExist:
                     return Response({"error": f"User with ID {row['User_ID']} does not exist."}, status=status.HTTP_400_BAD_REQUEST)
         

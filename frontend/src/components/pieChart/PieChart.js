@@ -2,7 +2,10 @@ import React from 'react'
 import Chart from "react-apexcharts";
 
 
-const PieChart = ({labels,y,title}) => {
+const PieChart = ({data}) => {
+
+  var labels=data.map((item)=>item.Reason)
+  var y = data.map((item)=>item.total_amount_spent)
     const options={
         series: y,
         options: {
@@ -11,7 +14,7 @@ const PieChart = ({labels,y,title}) => {
           },
           labels: labels,
           title:{
-            text: title,
+            text: "Expenditure Over 6 Months",
             align: 'left'
           }
           

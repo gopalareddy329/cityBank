@@ -2,17 +2,25 @@ import React from 'react'
 import Chart from "react-apexcharts";
 
 
-const RadarPlot = ({x,y,title}) => {
-  const series = y.map((item, index) => {
-    return {
-        name: `Series ${index + 1}`,  
-        data: item                  
-    };
-});
+const RadarPlot = ({x,y,data}) => {
+  var x=data.map((item)=>item.Reason)
+  var series1 = data.map((item, index) => item.total_amount_spent);
+  var series2 = data.map((item, index) => item.total_can_spent);
+
 
   var options = {
           
-      series: series,
+      series: [
+        {
+          "name":"Amount Spent",
+          "data":series1
+        },
+        {
+          "name":"Amount Can Spent",
+          "data":series2
+
+        }
+      ],
       options: {
         chart: {
           type: 'radar',
@@ -24,7 +32,7 @@ const RadarPlot = ({x,y,title}) => {
           }
         },
         title: {
-          text: title
+          text: "Evaluator Report"
         },
         stroke: {
           width: 2
