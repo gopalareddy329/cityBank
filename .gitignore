@@ -23,6 +23,3 @@ frontend/yarn-debug.log*
 frontend/yarn-error.log*
 
 venv
-
-migrations
-__pycache__
